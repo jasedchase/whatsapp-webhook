@@ -2,10 +2,6 @@ export default async function handler(req, res) {
   // =====================================================
   // 1️⃣ Webhook verification (required by Meta)
   // =====================================================
-  console.log("🔥 WEBHOOK HIT");
-  console.log("METHOD:", req.method);
-  console.log("BODY:", JSON.stringify(req.body));
-  
   if (req.method === "GET") {
     const mode = req.query["hub.mode"];
     const token = req.query["hub.verify_token"];
@@ -14,7 +10,7 @@ export default async function handler(req, res) {
     if (mode === "subscribe" && token === process.env.VERIFY_TOKEN) {
       return res.status(200).send(challenge);
     }
-    return res.sendStatus(403);
+    return res.status(403).send('Forbidden');
   }
 
   // =====================================================
@@ -28,7 +24,7 @@ export default async function handler(req, res) {
 
       // Always acknowledge Meta
       if (!message || message.type !== "text") {
-        return res.sendStatus(200);
+        return res.status(200).send('OK');
       }
 
       const from = message.from;
@@ -51,10 +47,10 @@ You said:
 
       await sendWhatsAppMessage(from, reply);
 
-      return res.sendStatus(200);
+      return res.status(200).send('OK');
     } catch (err) {
       console.error("Webhook error:", err);
-      return res.sendStatus(200); // Always return 200 to Meta
+      return res.status(200).send('OK'); // Always return 200 to Meta
     }
   }
 }
