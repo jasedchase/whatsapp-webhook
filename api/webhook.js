@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     if (mode === "subscribe" && token === process.env.VERIFY_TOKEN) {
       return res.status(200).send(challenge);
     }
-    return res.status(403).send('Forbidden');
+    return res.status(403).send("Forbidden");
   }
 
   // =====================================================
@@ -24,35 +24,56 @@ export default async function handler(req, res) {
 
       // Always acknowledge Meta
       if (!message || message.type !== "text") {
-        return res.status(200).send('OK');
+        return res.status(200).send("OK");
       }
 
       const from = message.from;
-      const text = message.text.body;
+      const userText = message.text.body;
 
       // =====================================================
-      // 3️⃣ Sample reply (NO AI)
+      // 3️⃣ OpenAI response
       // =====================================================
-      const reply = `👋 Hello!
+      const aiReply = await getAIResponse(userText);
 
-You said:
-"${text}"
+      await sendWhatsAppMessage(from, aiReply);
 
-✅ This reply is coming from:
-• WhatsApp Cloud API
-• Vercel serverless
-• Node.js webhook
-
-(No AI yet 🚀)`;
-
-      await sendWhatsAppMessage(from, reply);
-
-      return res.status(200).send('OK');
+      return res.status(200).send("OK");
     } catch (err) {
       console.error("Webhook error:", err);
-      return res.status(200).send('OK'); // Always return 200 to Meta
+      return res.status(200).send("OK"); // Always return 200 to Meta
     }
   }
+}
+
+async function getAIResponse(userMessage) {
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are a helpful WhatsApp chatbot. Keep replies short and friendly."
+        },
+        {
+          role: "user",
+          content: userMessage
+        }
+      ],
+      temperature: 0.7
+    })
+  });
+
+  const data = await response.json();
+
+  return (
+    data.choices?.[0]?.message?.content ||
+    "Sorry, I had trouble answering that."
+  );
 }
 
 // =====================================================
