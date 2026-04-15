@@ -62,7 +62,19 @@ async function getAIResponse(userMessage) {
       },
       body: JSON.stringify({
         model: "gpt-5-nano",
-        input: `You are a WhatsApp assistant. Answer ONLY using the knowledge base below. If the answer is not inside it, say: "I don't have that information yet." KNOWLEDGE BASE: ${knowledge} User question: ${userMessage}`
+        input: `
+You are a WhatsApp assistant.
+
+Answer ONLY using the knowledge base below.
+If the answer is not inside it, say:
+"I don't have that information yet."
+
+KNOWLEDGE BASE:
+${knowledge}
+
+User question:
+${userMessage}
+`
       })
     }
   );
