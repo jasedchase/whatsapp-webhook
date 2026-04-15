@@ -1,3 +1,6 @@
+import fs from "fs";
+import path from "path";
+
 export default async function handler(req, res) {
   // =====================================================
   // 1️⃣ Webhook verification (required by Meta)
@@ -46,33 +49,28 @@ export default async function handler(req, res) {
 }
 
 async function getAIResponse(userMessage) {
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are a helpful WhatsApp chatbot. Keep replies short and friendly."
-        },
-        {
-          role: "user",
-          content: userMessage
-        }
-      ],
-      temperature: 0.7
-    })
-  });
+  const knowledge = loadKnowledgeBase();
+
+  const response = await fetch(
+    "https://api.openai.com/v1/responses",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gpt-5-nano",
+        input: `You are a WhatsApp assistant. Answer ONLY using the knowledge base below. If the answer is not inside it, say: "I don't have that information yet." KNOWLEDGE BASE: ${knowledge} User question: ${userMessage}`
+      })
+    }
+  );
 
   const data = await response.json();
 
   return (
-    data.choices?.[0]?.message?.content ||
-    "Sorry, I had trouble answering that."
+    data.output?.[0]?.content?.[0]?.text ||
+    "I couldn't find that in the knowledge base."
   );
 }
 
@@ -96,4 +94,9 @@ async function sendWhatsAppMessage(to, text) {
       })
     }
   );
+}
+
+async function loadKnowledgeBase() {
+  const filePath = path.join(process.cwd(), "knowledge", "knowledge.txt");
+  return fs.readFileSync(filePath, "utf8");
 }
