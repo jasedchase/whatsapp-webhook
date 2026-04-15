@@ -50,6 +50,7 @@ export default async function handler(req, res) {
 
 async function getAIResponse(userMessage) {
   const knowledge = loadKnowledgeBase();
+  console.log("Knowledge length:", knowledge.length);
 
   const response = await fetch(
     "https://api.openai.com/v1/responses",
@@ -69,8 +70,9 @@ async function getAIResponse(userMessage) {
   const data = await response.json();
 
   return (
+    data.output_text ||
     data.output?.[0]?.content?.[0]?.text ||
-    "I couldn't find that in the knowledge base."
+    "I couldn’t find that in the knowledge base."
   );
 }
 
