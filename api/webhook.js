@@ -49,7 +49,7 @@ export default async function handler(req, res) {
 }
 
 async function getAIResponse(userMessage) {
-  const knowledge = loadKnowledgeBase();
+  const knowledge = await loadKnowledgeBase();
   console.log("Knowledge length:", knowledge.length);
 
   const response = await fetch(
@@ -111,6 +111,12 @@ async function sendWhatsAppMessage(to, text) {
 }
 
 async function loadKnowledgeBase() {
-  const filePath = path.join(process.cwd(), "knowledge", "knowledge.txt");
-  return fs.readFileSync(filePath, "utf8");
+  try {
+    const filePath = path.join(process.cwd(), "knowledge", "knowledge.txt");
+    const data = fs.readFileSync(filePath, "utf8");
+    return data;
+  } catch (err) {
+    console.error("Failed to load knowledge file:", err.message);
+    return "";
+  }
 }
