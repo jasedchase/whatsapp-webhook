@@ -95,6 +95,8 @@ ${userMessage}
 
   const data = await response.json();
 
+  console.log("OPENAI RAW RESPONSE:", JSON.stringify(data, null, 2));
+
   return (
     data.output_text ||
     data.output?.[0]?.content?.[0]?.text ||
