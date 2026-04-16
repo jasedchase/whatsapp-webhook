@@ -63,16 +63,19 @@ async function getAIResponse(userMessage) {
       body: JSON.stringify({
         model: "gpt-5-nano",
         input: `
-You are a WhatsApp assistant.
+You are a WhatsApp assistant for JPL Wong & Co.
 
-Answer ONLY using the knowledge base below.
-If the answer is not inside it, say:
-"I don't have that information yet."
+Answer using ONLY the knowledge base provided below.
+You may paraphrase and summarize from it.
+
+If the answer exists partially, respond with the closest relevant information.
+
+Only say "I don't have that information yet." if the answer truly does not exist in the knowledge base.
 
 KNOWLEDGE BASE:
 ${knowledge}
 
-User question:
+QUESTION:
 ${userMessage}
 `
       })
