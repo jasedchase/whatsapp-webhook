@@ -50,7 +50,6 @@ export default async function handler(req, res) {
 
 async function getAIResponse(userMessage) {
   const knowledge = await loadKnowledgeBase();
-  console.log("Knowledge length:", knowledge.length);
 
   const response = await fetch(
     "https://api.openai.com/v1/responses",
@@ -95,13 +94,14 @@ ${userMessage}
 
   const data = await response.json();
 
-  console.log("OPENAI RAW RESPONSE:", JSON.stringify(data, null, 2));
-
-  return (
+  const reply =
     data.output_text ||
-    data.output?.[0]?.content?.[0]?.text ||
-    "I couldn’t find that in the knowledge base."
-  );
+    data.output
+      ?.find(item => item.type === "message")
+      ?.content?.find(c => c.type === "output_text")
+      ?.text;
+
+  return reply || "I couldn't find that in the knowledge base.";
 }
 
 // =====================================================
@@ -130,9 +130,6 @@ async function loadKnowledgeBase() {
   try {
     const filePath = path.resolve("./knowledge/knowledge.txt");
     const data = fs.readFileSync(filePath, "utf8");
-
-    console.log("Loaded knowledge from:", filePath);
-    console.log("Knowledge preview:", data.substring(0, 100));
 
     return data;
   } catch (err) {
