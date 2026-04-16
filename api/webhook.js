@@ -112,11 +112,15 @@ async function sendWhatsAppMessage(to, text) {
 
 async function loadKnowledgeBase() {
   try {
-    const filePath = path.join(process.cwd(), "knowledge", "knowledge.txt");
+    const filePath = path.resolve("./knowledge/knowledge.txt");
     const data = fs.readFileSync(filePath, "utf8");
+
+    console.log("Loaded knowledge from:", filePath);
+    console.log("Knowledge preview:", data.substring(0, 100));
+
     return data;
   } catch (err) {
-    console.error("Failed to load knowledge file:", err.message);
+    console.error("Failed to load knowledge file:", err);
     return "";
   }
 }
