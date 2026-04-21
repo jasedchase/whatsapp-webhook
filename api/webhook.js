@@ -49,69 +49,31 @@ export default async function handler(req, res) {
 }
 
 async function getAIResponse(userMessage) {
-  const knowledge = await loadKnowledgeBase();
+  const knowledge = loadKnowledgeBase();
 
-  const response = await fetch(
-    "https://api.openai.com/v1/responses",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "gpt-5-nano",
-        input: `
-You are a WhatsApp assistant for JPL Wong & Co, a Singapore accounting and audit firm.
+  // STEP 1 — Ask OpenAI using knowledge base ONLY
+  const kbAnswer = await askOpenAI(knowledge, "", userMessage);
 
-Answer client questions using the knowledge base below FIRST.
+  // If KB already answered properly, return it
+  if (
+    kbAnswer &&
+    !kbAnswer.toLowerCase().includes("i don't have that information yet")
+  ) {
+    console.log("Answered from knowledge base");
+    return kbAnswer;
+  }
 
-If the answer is not found in the knowledge base, then answer using information from the official website:
-https://www.jplwong.com.sg/
+  console.log("Falling back to website...");
 
-Do NOT invent information.
-Do NOT use external sources other than the knowledge base and the official website.
+  // STEP 2 — Search website
+  const websiteContent = await searchWebsite(userMessage);
 
-The knowledge base contains:
-- service descriptions
-- ESG grant audit procedures
-- audit fees
-- company incorporation requirements
-- bookkeeping and tax requirements
-- statutory audit requirements
+  if (!websiteContent) {
+    return "I don't have that information yet.";
+  }
 
-When a question asks about services, list the services clearly.
-
-When a question asks about ESG audit fees, return the fee tiers.
-
-When a question asks about requirements, return the requested documents.
-
-If the answer exists partially in the knowledge base, combine it with relevant details from the website.
-
-Only reply:
-"I don't have that information yet."
-if the answer does not exist in BOTH the knowledge base and the website.
-
-KNOWLEDGE BASE:
-${knowledge}
-
-CLIENT QUESTION:
-${userMessage}
-`
-      })
-    }
-  );
-
-  const data = await response.json();
-
-  const reply =
-    data.output_text ||
-    data.output
-      ?.find(item => item.type === "message")
-      ?.content?.find(c => c.type === "output_text")
-      ?.text;
-
-  return reply || "I couldn't find that in the knowledge base.";
+  // STEP 3 — Ask OpenAI again using website content
+  return await askOpenAI(knowledge, websiteContent, userMessage);
 }
 
 // =====================================================
@@ -133,6 +95,92 @@ async function sendWhatsAppMessage(to, text) {
         text: { body: text }
       })
     }
+  );
+}
+
+async function getSitemapUrls() {
+  const sitemapUrl = "https://www.jplwong.com.sg/sitemap.xml";
+
+  const res = await fetch(sitemapUrl);
+  const xml = await res.text();
+
+  const matches = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)];
+  return matches.map(m => m[1]);
+}
+
+async function extractPageText(url) {
+  try {
+    const res = await fetch(url);
+    const html = await res.text();
+
+    return html
+      .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  } catch {
+    return "";
+  }
+}
+
+async function searchWebsite(question) {
+  const urls = await getSitemapUrls();
+
+  const keywords = question
+    .toLowerCase()
+    .split(" ")
+    .filter(word => word.length > 3);
+
+  for (const url of urls.slice(0, 6)) {
+    const text = await extractPageText(url);
+
+    if (keywords.some(k => text.toLowerCase().includes(k))) {
+      return text.substring(0, 4000);
+    }
+  }
+
+  return "";
+}
+
+async function askOpenAI(knowledge, websiteContent, question) {
+  const response = await fetch(
+    "https://api.openai.com/v1/responses",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gpt-5-nano",
+        input: `
+You are a WhatsApp assistant for JPL Wong & Co, Singapore.
+
+Answer using the knowledge base first.
+If missing, use the website content.
+
+Only reply "I don't have that information yet." if the answer truly does not exist.
+
+KNOWLEDGE BASE:
+${knowledge}
+
+WEBSITE CONTENT:
+${websiteContent}
+
+QUESTION:
+${question}
+`
+      })
+    }
+  );
+
+  const data = await response.json();
+
+  return (
+    data.output_text ||
+    data.output?.[0]?.content?.[0]?.text ||
+    "I don't have that information yet."
   );
 }
 
