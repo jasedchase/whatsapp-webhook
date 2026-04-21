@@ -132,14 +132,20 @@ async function searchWebsite(question) {
     .split(" ")
     .filter(word => word.length > 3);
 
-  for (const url of urls.slice(0, 6)) {
+  for (const url of urls) {
+    console.log("Scanning:", url);
+
     const text = await extractPageText(url);
 
+    if (!text) continue;
+
     if (keywords.some(k => text.toLowerCase().includes(k))) {
-      return text.substring(0, 4000);
+      console.log("Match found in:", url);
+      return text.substring(0, 6000);
     }
   }
 
+  console.log("No website match found");
   return "";
 }
 
