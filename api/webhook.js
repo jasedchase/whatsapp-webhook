@@ -183,11 +183,14 @@ ${question}
 
   const data = await response.json();
 
-  return (
+  const reply =
     data.output_text ||
-    data.output?.[0]?.content?.[0]?.text ||
-    "I don't have that information yet."
-  );
+    data.output
+      ?.find(item => item.type === "message")
+      ?.content?.find(c => c.type === "output_text")
+      ?.text;
+
+  return reply || "I don't have that information yet.";
 }
 
 async function loadKnowledgeBase() {
