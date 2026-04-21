@@ -51,28 +51,24 @@ export default async function handler(req, res) {
 async function getAIResponse(userMessage) {
   const knowledge = loadKnowledgeBase();
 
-  // STEP 1 — Ask OpenAI using knowledge base ONLY
-  const kbAnswer = await askOpenAI(knowledge, "", userMessage);
+  // STEP 1 — ask using knowledge base ONLY
+  const kbAnswer = await askOpenAI(knowledge, null, userMessage);
 
-  // If KB already answered properly, return it
-  if (
-    kbAnswer &&
-    !kbAnswer.toLowerCase().includes("i don't have that information yet")
-  ) {
+  if (kbAnswer !== "__NOT_FOUND__") {
     console.log("Answered from knowledge base");
     return kbAnswer;
   }
 
   console.log("Falling back to website...");
 
-  // STEP 2 — Search website
+  // STEP 2 — search website
   const websiteContent = await searchWebsite(userMessage);
 
   if (!websiteContent) {
     return "I don't have that information yet.";
   }
 
-  // STEP 3 — Ask OpenAI again using website content
+  // STEP 3 — ask again using website content
   return await askOpenAI(knowledge, websiteContent, userMessage);
 }
 
@@ -150,6 +146,8 @@ async function searchWebsite(question) {
 }
 
 async function askOpenAI(knowledge, websiteContent, question) {
+  const allowWebsite = websiteContent !== null;
+
   const response = await fetch(
     "https://api.openai.com/v1/responses",
     {
@@ -163,16 +161,24 @@ async function askOpenAI(knowledge, websiteContent, question) {
         input: `
 You are a WhatsApp assistant for JPL Wong & Co, Singapore.
 
-Answer using the knowledge base first.
-If missing, use the website content.
+Answer STRICTLY using the knowledge base.
 
-Only reply "I don't have that information yet." if the answer truly does not exist.
+If the answer is not inside the knowledge base, reply EXACTLY:
+
+__NOT_FOUND__
+
+${allowWebsite ? `
+If the knowledge base does not contain the answer,
+you may use the website content below.
+` : ""}
 
 KNOWLEDGE BASE:
 ${knowledge}
 
+${allowWebsite ? `
 WEBSITE CONTENT:
 ${websiteContent}
+` : ""}
 
 QUESTION:
 ${question}
@@ -190,7 +196,7 @@ ${question}
       ?.content?.find(c => c.type === "output_text")
       ?.text;
 
-  return reply || "I don't have that information yet.";
+  return reply || "__NOT_FOUND__";
 }
 
 async function loadKnowledgeBase() {
