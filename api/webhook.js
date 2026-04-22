@@ -54,6 +54,7 @@ async function getAIResponse(userMessage) {
   console.log("Checking knowledge base first...");
 
   const kbAnswer = await askOpenAI(knowledge, null, userMessage);
+  console.log("KB ANSWER:", kbAnswer);
 
   if (kbAnswer !== "__NOT_FOUND__") {
     console.log("Answered from knowledge base");
