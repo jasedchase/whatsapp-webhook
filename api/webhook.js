@@ -167,9 +167,9 @@ async function askOpenAI(knowledge, websiteContent, question) {
         input: `
 You are a WhatsApp assistant for JPL Wong & Co, Singapore.
 
-Answer the question using ONLY the KNOWLEDGE BASE below.
+Answer the user's question using ONLY the knowledge base below.
 
-If the knowledge base does not contain the answer,
+If the knowledge base clearly does not contain the answer,
 reply exactly:
 
 __NOT_FOUND__
