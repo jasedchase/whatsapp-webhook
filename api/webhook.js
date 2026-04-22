@@ -54,33 +54,26 @@ async function getAIResponse(userMessage) {
   console.log("Checking knowledge base first...");
 
   const kbAnswer = await askOpenAI(knowledge, null, userMessage);
+
   console.log("KB ANSWER:", kbAnswer);
 
-  if (kbAnswer !== "__NOT_FOUND__") {
-    console.log("Answered from knowledge base");
-    return kbAnswer;
+  // Only fallback if clearly not found
+  if (
+    !kbAnswer ||
+    kbAnswer.trim() === "__NOT_FOUND__"
+  ) {
+    console.log("Searching website...");
+
+    const websiteContent = await searchWebsite(userMessage);
+
+    if (!websiteContent) {
+      return "I don't have that information yet.";
+    }
+
+    return await askOpenAI(knowledge + "\n\n" + websiteContent, null, userMessage);
   }
 
-  console.log("Searching website...");
-
-  const websiteContent = await searchWebsite(userMessage);
-
-  if (!websiteContent) {
-    return "I don't have that information yet.";
-  }
-
-  const siteAnswer = await askOpenAI(
-    knowledge,
-    websiteContent,
-    userMessage
-  );
-
-  if (siteAnswer !== "__NOT_FOUND__") {
-    console.log("Answered from website");
-    return siteAnswer;
-  }
-
-  return "I don't have that information yet.";
+  return kbAnswer;
 }
 
 // =====================================================
@@ -174,18 +167,15 @@ async function askOpenAI(knowledge, websiteContent, question) {
         input: `
 You are a WhatsApp assistant for JPL Wong & Co, Singapore.
 
-PRIORITY RULES:
+Answer the question using ONLY the KNOWLEDGE BASE below.
 
-1. Always answer using the knowledge base first.
-2. Only use WEBSITE CONTENT if the knowledge base does NOT contain the answer.
-3. If neither contains the answer, reply exactly:
+If the knowledge base does not contain the answer,
+reply exactly:
 
 __NOT_FOUND__
 
 KNOWLEDGE BASE:
 ${knowledge}
-
-${context}
 
 QUESTION:
 ${question}
