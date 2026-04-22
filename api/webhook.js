@@ -49,7 +49,7 @@ export default async function handler(req, res) {
 }
 
 async function getAIResponse(userMessage) {
-  const knowledge = loadKnowledgeBase();
+  const knowledge = await loadKnowledgeBase();
 
   console.log("Checking knowledge base first...");
 
