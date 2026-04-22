@@ -51,7 +51,8 @@ export default async function handler(req, res) {
 async function getAIResponse(userMessage) {
   const knowledge = loadKnowledgeBase();
 
-  // STEP 1 — ask using knowledge base ONLY
+  console.log("Checking knowledge base first...");
+
   const kbAnswer = await askOpenAI(knowledge, null, userMessage);
 
   if (kbAnswer !== "__NOT_FOUND__") {
@@ -59,17 +60,26 @@ async function getAIResponse(userMessage) {
     return kbAnswer;
   }
 
-  console.log("Falling back to website...");
+  console.log("Searching website...");
 
-  // STEP 2 — search website
   const websiteContent = await searchWebsite(userMessage);
 
   if (!websiteContent) {
     return "I don't have that information yet.";
   }
 
-  // STEP 3 — ask again using website content
-  return await askOpenAI(knowledge, websiteContent, userMessage);
+  const siteAnswer = await askOpenAI(
+    knowledge,
+    websiteContent,
+    userMessage
+  );
+
+  if (siteAnswer !== "__NOT_FOUND__") {
+    console.log("Answered from website");
+    return siteAnswer;
+  }
+
+  return "I don't have that information yet.";
 }
 
 // =====================================================
@@ -146,7 +156,9 @@ async function searchWebsite(question) {
 }
 
 async function askOpenAI(knowledge, websiteContent, question) {
-  const allowWebsite = websiteContent !== null;
+  const context = websiteContent
+    ? `WEBSITE CONTENT:\n${websiteContent}`
+    : "";
 
   const response = await fetch(
     "https://api.openai.com/v1/responses",
@@ -161,32 +173,18 @@ async function askOpenAI(knowledge, websiteContent, question) {
         input: `
 You are a WhatsApp assistant for JPL Wong & Co, Singapore.
 
-Answer using ONLY the knowledge base below.
+PRIORITY RULES:
 
-IMPORTANT RULES:
-
-If the user asks about services, service list,
-what the company provides, or similar wording,
-ALWAYS return the list of services found in the knowledge base.
-
-Examples:
-"What services do you offer"
-"What are your services"
-"Services offered"
-"What does your firm do"
-
-These MUST be answered from the knowledge base.
-
-If the answer exists anywhere in the knowledge base,
-respond normally.
-
-If the answer truly does NOT exist in the knowledge base,
-reply EXACTLY:
+1. Always answer using the knowledge base first.
+2. Only use WEBSITE CONTENT if the knowledge base does NOT contain the answer.
+3. If neither contains the answer, reply exactly:
 
 __NOT_FOUND__
 
 KNOWLEDGE BASE:
 ${knowledge}
+
+${context}
 
 QUESTION:
 ${question}
@@ -197,14 +195,14 @@ ${question}
 
   const data = await response.json();
 
-  const reply =
+  return (
     data.output_text ||
     data.output
       ?.find(item => item.type === "message")
       ?.content?.find(c => c.type === "output_text")
-      ?.text;
-
-  return reply || "__NOT_FOUND__";
+      ?.text ||
+    "__NOT_FOUND__"
+  );
 }
 
 async function loadKnowledgeBase() {
