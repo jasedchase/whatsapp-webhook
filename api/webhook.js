@@ -53,27 +53,28 @@ async function getAIResponse(userMessage) {
 
   console.log("Checking knowledge base first...");
 
-  const kbAnswer = await askOpenAI(knowledge, null, userMessage);
+  const kbAnswer = await askOpenAIUsingKnowledgeBase(
+    knowledge,
+    userMessage
+  );
 
   console.log("KB ANSWER:", kbAnswer);
 
-  // Only fallback if clearly not found
-  if (
-    !kbAnswer ||
-    kbAnswer.trim() === "__NOT_FOUND__"
-  ) {
-    console.log("Searching website...");
-
-    const websiteContent = await searchWebsite(userMessage);
-
-    if (!websiteContent) {
-      return "I don't have that information yet.";
-    }
-
-    return await askOpenAI(knowledge + "\n\n" + websiteContent, null, userMessage);
+  if (kbAnswer && kbAnswer !== "__NOT_FOUND__") {
+    console.log("Answered from knowledge base");
+    return kbAnswer;
   }
 
-  return kbAnswer;
+  console.log("Searching website...");
+
+  const websiteAnswer = await askOpenAIUsingWebsite(userMessage);
+
+  if (websiteAnswer && websiteAnswer !== "__NOT_FOUND__") {
+    console.log("Answered from website");
+    return websiteAnswer;
+  }
+
+  return "I don't have that information yet.";
 }
 
 // =====================================================
@@ -149,11 +150,10 @@ async function searchWebsite(question) {
   return "";
 }
 
-async function askOpenAI(knowledge, websiteContent, question) {
-  const context = websiteContent
-    ? `WEBSITE CONTENT:\n${websiteContent}`
-    : "";
-
+async function askOpenAIUsingKnowledgeBase(
+  knowledge,
+  question
+) {
   const response = await fetch(
     "https://api.openai.com/v1/responses",
     {
@@ -169,13 +169,62 @@ You are a WhatsApp assistant for JPL Wong & Co, Singapore.
 
 Answer the user's question using ONLY the knowledge base below.
 
-If the knowledge base clearly does not contain the answer,
+If the answer does not exist inside the knowledge base,
 reply exactly:
 
 __NOT_FOUND__
 
 KNOWLEDGE BASE:
 ${knowledge}
+
+QUESTION:
+${question}
+`
+      })
+    }
+  );
+
+  const data = await response.json();
+
+  return (
+    data.output_text ||
+    data.output
+      ?.find(item => item.type === "message")
+      ?.content?.find(c => c.type === "output_text")
+      ?.text ||
+    "__NOT_FOUND__"
+  );
+}
+
+async function askOpenAIUsingWebsite(question) {
+  const websiteContent = await searchWebsite(question);
+
+  if (!websiteContent) {
+    return "__NOT_FOUND__";
+  }
+
+  const response = await fetch(
+    "https://api.openai.com/v1/responses",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gpt-5-nano",
+        input: `
+You are a WhatsApp assistant for JPL Wong & Co, Singapore.
+
+Answer the user's question using ONLY the website content below.
+
+If the answer does not exist inside the website content,
+reply exactly:
+
+__NOT_FOUND__
+
+WEBSITE CONTENT:
+${websiteContent}
 
 QUESTION:
 ${question}
